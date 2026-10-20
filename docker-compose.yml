@@ -1,0 +1,68 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: ./docker/php/Dockerfile
+    container_name: laradocker
+    volumes:
+      - .:/var/www
+    networks:
+      - laranet
+
+  web:
+    image: docker.io/library/nginx:alpine
+    container_name: laranginx
+    ports:
+      - "8000:80"
+    volumes:
+      - .:/var/www
+      - ./docker/nginx/default.conf:/etc/nginx/conf.d/default.conf:ro
+    depends_on:
+      - app
+    networks:
+      - laranet
+
+  postgres:
+    image: docker.io/library/postgres:16-alpine
+    container_name: larapg
+    environment:
+      POSTGRES_DB: larapg_db
+      POSTGRES_USER: larapg
+      POSTGRES_PASSWORD: larapg123
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - laranet
+
+  dbgate:
+    image: docker.io/dbgate/dbgate
+    container_name: laragate
+    restart: always
+    ports:
+      - "8080:3000"
+    environment:
+      CONNECTIONS: con_pg
+      LABEL_con_pg: Local Postgres
+      SERVER_con_pg: postgres
+      USER_con_pg: larapg
+      PASSWORD_con_pg: larapg123
+      PORT_con_pg: 5432
+      DATABASE_con_pg: larapg_db
+      ENGINE_con_pg: postgres@dbgate-plugin-postgres
+    volumes:
+      - dbgate-data:/root/.dbgate
+    depends_on:
+      - postgres
+
+networks:
+  laranet:
+    driver: bridge
+
+volumes:
+  pgdata:
+  dbgate-data:
+
